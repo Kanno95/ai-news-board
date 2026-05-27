@@ -4,107 +4,72 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>AI News Board</title>
-    <style>
-        body {
-            margin: 0;
-            background: #eef4f7;
-            color: #162028;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        }
-
-        .page {
-            max-width: 960px;
-            margin: 0 auto;
-            padding: 32px 20px 48px;
-        }
-
-        .masthead,
-        .news-item,
-        .empty {
-            border: 1px solid #dbe8ec;
-            border-radius: 8px;
-            background: #ffffff;
-        }
-
-        .masthead {
-            padding: 22px;
-        }
-
-        .eyebrow {
-            margin: 0 0 8px;
-            color: #0f6b63;
-            font-size: 13px;
-            font-weight: 700;
-        }
-
-        h1 {
-            margin: 0;
-            font-size: 30px;
-            line-height: 1.2;
-        }
-
-        .news-list {
-            display: grid;
-            gap: 12px;
-            margin-top: 20px;
-        }
-
-        .news-item {
-            padding: 18px;
-        }
-
-        .news-title {
-            margin: 0;
-            font-size: 18px;
-            line-height: 1.45;
-        }
-
-        .news-title a {
-            color: #14384a;
-            text-decoration: none;
-        }
-
-        .news-title a:hover {
-            color: #0f6b63;
-            text-decoration: underline;
-            text-underline-offset: 3px;
-        }
-
-        .summary {
-            margin: 10px 0 0;
-            color: #3c4d55;
-            font-size: 14px;
-            line-height: 1.65;
-        }
-
-        .meta {
-            margin-top: 12px;
-            color: #64757d;
-            font-size: 13px;
-        }
-
-        .empty {
-            margin-top: 20px;
-            padding: 24px;
-            color: #5f6f78;
-        }
-
-        .pagination {
-            margin-top: 22px;
-        }
-
-        .pagination nav {
-            display: flex;
-            gap: 8px;
-        }
-    </style>
+    <link rel="stylesheet" href="{{ asset('css/news-board.css') }}">
+    <script src="{{ asset('js/news-board.js') }}" defer></script>
 </head>
 <body>
     <main class="page">
         <header class="masthead">
-            <p class="eyebrow">AIニュース速報</p>
-            <h1>AI News Board</h1>
+            <div>
+                <div class="eyebrow">
+                    <span class="eyebrow-mark" aria-hidden="true"></span>
+                    AIニュース速報
+                </div>
+                <h1 class="title">AI News Board</h1>
+            </div>
+            <div class="stat-card">
+                <span class="stat-number">
+                    @if ($selectedDate)
+                        {{ $newsItems->total() }}
+                    @elseif ($latestDate)
+                        {{ \Carbon\CarbonImmutable::parse($latestDate)->format('n/j') }}
+                    @else
+                        0
+                    @endif
+                </span>
+                <span class="stat-label">
+                    @if ($selectedDate)
+                        記事数
+                    @else
+                        最新日
+                    @endif
+                </span>
+            </div>
         </header>
+
+        <section class="filter-bar" aria-label="News filters">
+            <div>
+                <p class="filter-title">
+                    @if ($selectedDate)
+                        {{ \Carbon\CarbonImmutable::parse($selectedDate)->format('Y年m月d日') }} のAIニュース
+                    @else
+                        最新の国内AIニュース
+                    @endif
+                </p>
+                <p class="filter-note">
+                    @if ($latestDate)
+                        最新: {{ \Carbon\CarbonImmutable::parse($latestDate)->format('Y年m月d日') }}。直近30日分を表示
+                    @else
+                        直近30日分を表示
+                    @endif
+                </p>
+            </div>
+            <div class="filter-controls">
+                <form class="filter-form" method="GET" action="/">
+                    <select class="date-select" name="date" aria-label="表示する日付" onchange="this.form.submit()">
+                        <option value="">最新ニュース</option>
+                        @foreach ($dateOptions as $dateOption)
+                            <option value="{{ $dateOption }}" @selected($selectedDate === $dateOption)>
+                                {{ \Carbon\CarbonImmutable::parse($dateOption)->format('Y年m月d日') }}
+                            </option>
+                        @endforeach
+                    </select>
+                    <noscript>
+                        <button class="filter-button" type="submit">表示</button>
+                    </noscript>
+                </form>
+            </div>
+        </section>
 
         @if ($newsItems->isEmpty())
             <div class="empty">
@@ -113,26 +78,67 @@
         @else
             <section class="news-list" aria-label="News list">
                 @foreach ($newsItems as $newsItem)
-                    <article class="news-item">
-                        <h2 class="news-title">
-                            <a href="{{ $newsItem->url }}" target="_blank" rel="noopener noreferrer">
-                                {{ $newsItem->title }}
-                            </a>
-                        </h2>
-                        @if ($newsItem->summary)
-                            <p class="summary">{{ $newsItem->summary }}</p>
-                        @endif
-                        @if ($newsItem->published_at)
-                            <div class="meta">
-                                {{ $newsItem->published_at->timezone('Asia/Tokyo')->format('Y-m-d H:i') }}
+                    @php
+                        $host = parse_url($newsItem->url, PHP_URL_HOST) ?: 'news';
+                        $domain = preg_replace('/^www\./', '', $host);
+                        $faviconUrl = 'https://www.google.com/s2/favicons?domain=' . urlencode($domain) . '&sz=64';
+                    @endphp
+                    <article class="news-item" data-url="{{ $newsItem->url }}" tabindex="0" aria-label="{{ $newsItem->title }} を開く" style="--entry-delay: {{ min($loop->index, 9) * 55 }}ms;">
+                        <div class="news-content">
+                            <div class="title-line">
+                                @if ($newsItem->is_latest)
+                                    <span class="latest-badge">最新</span>
+                                @endif
+                                <h2 class="news-title">
+                                    <a href="{{ $newsItem->url }}" target="_blank" rel="noopener noreferrer">
+                                        {{ $newsItem->title }}
+                                    </a>
+                                </h2>
                             </div>
-                        @endif
+                            @if ($newsItem->summary)
+                                <p class="summary">{{ $newsItem->summary }}</p>
+                            @endif
+                            <div class="meta">
+                                @if ($newsItem->published_at)
+                                    <span class="pill">{{ $newsItem->published_at->timezone('Asia/Tokyo')->format('Y-m-d H:i') }}</span>
+                                @endif
+                            </div>
+                            <a class="open-link" href="{{ $newsItem->url }}" target="_blank" rel="noopener noreferrer">
+                                元記事を読む
+                            </a>
+                        </div>
+                        <div class="preview-frame" aria-hidden="true">
+                            @if ($newsItem->image_url)
+                                <img class="preview-image" src="{{ $newsItem->image_url }}" alt="" loading="lazy" onerror="this.className='favicon'; this.src='{{ $faviconUrl }}';">
+                            @else
+                                <img class="favicon" src="{{ $faviconUrl }}" alt="" loading="lazy">
+                            @endif
+                        </div>
                     </article>
                 @endforeach
             </section>
 
             <div class="pagination">
-                {{ $newsItems->links() }}
+                <div>
+                    @if ($selectedDate)
+                        {{ $newsItems->firstItem() }}-{{ $newsItems->lastItem() }} / {{ $newsItems->total() }} articles
+                    @else
+                        最新{{ $newsItems->count() }}件を表示中 / 保存済み{{ $newsItems->total() }}件
+                    @endif
+                </div>
+                <div class="pagination-links">
+                    @if ($newsItems->onFirstPage())
+                        <span class="pagination-disabled">Previous</span>
+                    @else
+                        <a class="pagination-link" href="{{ $newsItems->previousPageUrl() }}">Previous</a>
+                    @endif
+
+                    @if ($newsItems->hasMorePages())
+                        <a class="pagination-link" href="{{ $newsItems->nextPageUrl() }}">Next</a>
+                    @else
+                        <span class="pagination-disabled">Next</span>
+                    @endif
+                </div>
             </div>
         @endif
     </main>
