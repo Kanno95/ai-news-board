@@ -30,15 +30,15 @@ services:
     image: postgres:16
     container_name: ai-news-board-db
     environment:
-      POSTGRES_DB: ai_news_board
-      POSTGRES_USER: laravel
-      POSTGRES_PASSWORD: password
+      POSTGRES_DB: ${DB_DATABASE:-ai_news_board}
+      POSTGRES_USER: ${DB_USERNAME:-laravel}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-password}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U laravel -d ai_news_board"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 12
