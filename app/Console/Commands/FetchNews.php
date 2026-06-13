@@ -3,12 +3,12 @@
 namespace App\Console\Commands;
 
 use App\Models\NewsItem;
+use DOMDocument;
+use DOMXPath;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Http;
-use DOMDocument;
-use DOMXPath;
 use SimpleXMLElement;
 
 #[Signature('news:fetch')]
@@ -30,8 +30,6 @@ class FetchNews extends Command
 
         $savedCount = 0;
         $failedCount = 0;
-        $latestNewsItemIds = [];
-
         foreach ($feeds as $feed) {
             $this->info("Fetching RSS feed: {$feed['url']}");
 
@@ -76,30 +74,26 @@ class FetchNews extends Command
                     $values['image_url'] = $previewImageUrl;
                 }
 
-                $newsItem = NewsItem::updateOrCreate(
+                NewsItem::updateOrCreate(
                     ['url' => $url],
                     $values,
                 );
-
-                if ($newsItem->wasRecentlyCreated) {
-                    $latestNewsItemIds[] = $newsItem->id;
-                }
 
                 $savedCount++;
             }
         }
 
         if ($failedCount === 0) {
-            NewsItem::where('region', 'domestic')
-                ->where('is_latest', true)
-                ->update(['is_latest' => false]);
+            $latestPublishedAt = NewsItem::whereNotNull('published_at')->max('published_at');
 
-            if ($latestNewsItemIds !== []) {
-                NewsItem::whereIn('id', $latestNewsItemIds)
+            NewsItem::where('is_latest', true)->update(['is_latest' => false]);
+
+            if ($latestPublishedAt !== null) {
+                NewsItem::whereDate('published_at', substr($latestPublishedAt, 0, 10))
                     ->update(['is_latest' => true]);
             }
 
-            $this->info('Marked '.count($latestNewsItemIds).' new news items as latest.');
+            $this->info('Marked news items from the latest published date as latest.');
         }
 
         $this->info("Fetched {$savedCount} news items.");
@@ -154,7 +148,7 @@ class FetchNews extends Command
     {
         libxml_use_internal_errors(true);
 
-        $document = new DOMDocument();
+        $document = new DOMDocument;
         $loaded = $document->loadHTML($html, LIBXML_NONET);
 
         libxml_clear_errors();
