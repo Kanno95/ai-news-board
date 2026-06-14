@@ -3,6 +3,13 @@
 AI News Boardは、AI関連ニュースをRSSから取得し、日付ごとに確認できるニュースボードです。
 Laravel、PostgreSQL、Dockerを使い、ニュースの取得・保存・表示・日付絞り込みまでを一つのアプリとして実装しています。
 
+## 公開URL
+
+http://13.115.16.226/
+
+AWS Lightsail上で公開しています。
+現在は独自ドメインおよびHTTPSを設定していないため、HTTPでの公開です。
+
 ## 概要
 
 AI関連ニュースは毎日更新されますが、RSSだけでは過去記事を長く追いにくく、日付ごとの振り返りもしづらいです。
@@ -37,6 +44,7 @@ AI関連ニュースは毎日更新されますが、RSSだけでは過去記事
 | フロントエンド | Blade / CSS / JavaScript |
 | データベース | PostgreSQL |
 | 開発環境 | Docker / Docker Compose |
+| インフラ | AWS Lightsail / Ubuntu |
 | 外部データ | RSS |
 | バージョン管理 | Git / GitHub |
 
@@ -58,6 +66,17 @@ News Board UI
 
 RSS取得処理はLaravelのArtisanコマンドとして実装しています。
 Docker起動時にはschedulerサービスがRSS取得を一度実行し、その後スケジュール処理を待機します。
+
+## AWS構成
+
+本番環境では、Amazon LightsailのUbuntuインスタンス1台上でDocker Composeを使用し、以下の3サービスを稼働させています。
+
+- Laravel App：ニュース一覧画面を配信
+- Laravel Scheduler：RSS取得コマンドを定期実行
+- PostgreSQL：取得したニュース記事を永続化
+
+Lightsailには静的IPv4アドレスを割り当てています。
+アプリケーションの更新時は、LightsailへSSH接続し、GitHubから`main`ブランチを取得してコンテナを再起動します。
 
 ## データ取得の流れ
 
@@ -152,7 +171,8 @@ Dockerを起動したタイミングでRSS取得が一度実行されるよう�
 - キーワード検索
 - カテゴリ分類
 - 複数RSSソースへの対応
-- AWS環境へのデプロイ
+- TerraformによるAWSインフラのコード化
+- 独自ドメインとHTTPSへの対応
 - READMEへの画面キャプチャ追加
 - CIによる自動テスト実行
 
